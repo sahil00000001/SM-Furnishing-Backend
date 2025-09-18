@@ -1,0 +1,47 @@
+
+> products-api@1.0.0 dev
+> nodemon server.js
+
+[nodemon] 3.1.10
+[nodemon] to restart at any time, enter `rs`
+[nodemon] watching path(s): *.*
+[nodemon] watching extensions: js,mjs,cjs,json
+/home/runner/workspace/node_modules/mongodb-connection-string-url/lib/index.js:9
+    return (connectionString.startsWith('mongodb://') ||
+                             ^
+
+TypeError: Cannot read properties of undefined (reading 'startsWith')
+    at connectionStringHasValidScheme (/home/runner/workspace/node_modules/mongodb-connection-string-url/lib/index.js:9:30)
+    at new ConnectionString (/home/runner/workspace/node_modules/mongodb-connection-string-url/lib/index.js:85:34)
+    at parseOptions (/home/runner/workspace/node_modules/mongodb/lib/connection_string.js:197:17)
+    at new MongoClient (/home/runner/workspace/node_modules/mongodb/lib/mongo_client.js:68:61)
+    at Object.<anonymous> (/home/runner/workspace/server.js:14:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+
+Node.js v20.19.3
+[nodemon] app crashed - waiting for file changes before starting...
+[nodemon] restarting child process
+[nodemon] starting `node server.js`
+/home/runner/workspace/node_modules/mongodb-connection-string-url/lib/index.js:9
+    return (connectionString.startsWith('mongodb://') ||
+                             ^
+
+TypeError: Cannot read properties of undefined (reading 'startsWith')
+    at connectionStringHasValidScheme (/home/runner/workspace/node_modules/mongodb-connection-string-url/lib/index.js:9:30)
+    at new ConnectionString (/home/runner/workspace/node_modules/mongodb-connection-string-url/lib/index.js:85:34)
+    at parseOptions (/home/runner/workspace/node_modules/mongodb/lib/connection_string.js:197:17)
+    at new MongoClient (/home/runner/workspace/node_modules/mongodb/lib/mongo_client.js:68:61)
+    at Object.<anonymous> (/home/runner/workspace/server.js:14:16)
+    at Module._compile (node:internal/modules/cjs/loader:1529:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)
+
+Node.js v20.19.3
+[nodemon] app crashed - waiting for file changes before starting...
+^C^C^C^C
