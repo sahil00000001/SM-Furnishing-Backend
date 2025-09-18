@@ -276,15 +276,15 @@ app.get('/', (req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 async function startServer() {
   await connectToMongoDB();
   
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server is running on http://0.0.0.0:${PORT}`);
-    console.log(`📍 Products endpoint: http://0.0.0.0:${PORT}/api/products`);
-    console.log(`➕ Add product: POST http://0.0.0.0:${PORT}/api/products`);
+  app.listen(PORT, 'localhost', () => {
+    console.log(`🚀 Server is running on http://localhost:${PORT}`);
+    console.log(`📍 Products endpoint: http://localhost:${PORT}/api/products`);
+    console.log(`➕ Add product: POST http://localhost:${PORT}/api/products`);
   });
 }
 
