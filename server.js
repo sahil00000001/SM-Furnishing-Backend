@@ -64,7 +64,7 @@ app.get('/api/products', async (req, res) => {
 // POST /api/products - Add a new product
 app.post('/api/products', async (req, res) => {
   try {
-    const { categoryId, name, description, price, stock } = req.body;
+    const { categoryId, name, description, price, stock, status, imageUrl } = req.body;
     
     // Validation
     if (!name || !description || !price) {
@@ -119,6 +119,8 @@ app.post('/api/products', async (req, res) => {
       description: description.trim(),
       price: Number(price),
       stock: stock !== undefined ? Number(stock) : 0,
+      status: status || "Active",
+      imageUrl: imageUrl || "",
       createdAt: new Date(),
       updatedAt: new Date()
     };
