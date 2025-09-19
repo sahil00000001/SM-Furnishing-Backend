@@ -2,8 +2,14 @@ require('dotenv').config();
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { sendEmail } = require('./utils/replitmail');
 
 const app = express();
+
+// JWT Secret configuration
+const JWT_SECRET = process.env.JWT_SECRET || 'sm-furnishing-jwt-secret-2024';
 
 // Middleware
 app.use(cors());
@@ -16,6 +22,8 @@ const client = new MongoClient(uri);
 let db;
 let productsCollection;
 let categoriesCollection;
+let usersCollection;
+let otpCollection;
 
 // Connect to MongoDB
 async function connectToMongoDB() {
@@ -27,16 +35,384 @@ async function connectToMongoDB() {
     db = client.db('smFurnishing');
     productsCollection = db.collection('products');
     categoriesCollection = db.collection('categories');
+    usersCollection = db.collection('users');
+    otpCollection = db.collection('otps');
+    
+    // Create users collection with schema validation
+    try {
+      await db.createCollection("users", {
+        validator: {
+          $jsonSchema: {
+            bsonType: "object",
+            required: ["name", "email", "password"],
+            properties: {
+              name: {
+                bsonType: "string",
+                description: "must be a string and is required"
+              },
+              email: {
+                bsonType: "string",
+                pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+                description: "must be a valid email and is required"
+              },
+              password: {
+                bsonType: "string",
+                minLength: 6,
+                description: "must be a string of at least 6 characters and is required"
+              }
+            }
+          }
+        }
+      });
+      console.log('✅ Users collection created with validation');
+    } catch (error) {
+      if (error.code === 48) {
+        console.log('ℹ️ Users collection already exists');
+      } else {
+        console.log('⚠️ Error creating users collection:', error.message);
+      }
+    }
+    
+    // Create unique index for email
+    try {
+      await usersCollection.createIndex({ email: 1 }, { unique: true });
+      console.log('✅ Unique index created for user emails');
+    } catch (error) {
+      console.log('ℹ️ Email index already exists');
+    }
+    
+    // Create OTP collection with TTL index (expires after 10 minutes)
+    try {
+      await otpCollection.createIndex({ createdAt: 1 }, { expireAfterSeconds: 600 });
+      console.log('✅ OTP collection configured with TTL index');
+    } catch (error) {
+      console.log('ℹ️ OTP TTL index already exists');
+    }
     
     // Verify connection by counting documents
     const count = await productsCollection.countDocuments();
+    const userCount = await usersCollection.countDocuments();
+    const otpCount = await otpCollection.countDocuments();
     console.log(`📦 Found ${count} products in the database`);
+    console.log(`👥 Found ${userCount} users in the database`);
+    console.log(`📧 Found ${otpCount} active OTPs in the database`);
     
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
     process.exit(1);
   }
 }
+
+// POST /api/signup - User registration
+app.post('/api/signup', async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+    
+    // Validation
+    if (!email || !password || !name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, email, and password are required fields'
+      });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid email address'
+      });
+    }
+    
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+    
+    // Check if email already exists
+    const existingUser = await usersCollection.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'User with this email already exists'
+      });
+    }
+    
+    // Encrypt password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    
+    // Create new user object
+    const newUser = {
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password: hashedPassword,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    // Save user to database
+    const result = await usersCollection.insertOne(newUser);
+    
+    // Get the inserted user (without password)
+    const insertedUser = await usersCollection.findOne(
+      { _id: result.insertedId },
+      { projection: { password: 0 } }
+    );
+    
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        userId: insertedUser._id,
+        email: insertedUser.email,
+        name: insertedUser.name
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    // Send success response
+    res.status(201).json({
+      success: true,
+      message: 'User created successfully',
+      token: token,
+      user: insertedUser
+    });
+    
+    console.log(`✅ New user registered: ${email}`);
+    
+  } catch (error) {
+    console.error('Error creating user:', error);
+    
+    // Handle duplicate email error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'User with this email already exists'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Error creating user',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/login - User authentication
+app.post('/api/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and password are required'
+      });
+    }
+    
+    // Find user by email
+    const user = await usersCollection.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
+      });
+    }
+    
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
+      });
+    }
+    
+    // Remove password from user object
+    const userWithoutPassword = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
+    
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        userId: user._id,
+        email: user.email,
+        name: user.name
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    // Send success response
+    res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      token: token,
+      user: userWithoutPassword
+    });
+    
+    console.log(`✅ User logged in: ${email}`);
+    
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error during login',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/send-otp - Send OTP to email
+app.post('/api/send-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    // Validation
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid email address'
+      });
+    }
+    
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Delete any existing OTPs for this email
+    await otpCollection.deleteMany({ email: email.toLowerCase() });
+    
+    // Store OTP in database
+    const otpRecord = {
+      email: email.toLowerCase(),
+      otp: otp,
+      createdAt: new Date(),
+      verified: false
+    };
+    
+    await otpCollection.insertOne(otpRecord);
+    
+    // Send OTP email
+    const emailResult = await sendEmail({
+      to: email,
+      subject: 'SM Furnishing - Email Verification Code',
+      text: `Your verification code is: ${otp}\n\nThis code will expire in 10 minutes.\n\nIf you didn't request this code, please ignore this email.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333; text-align: center;">Email Verification</h2>
+          <p>Your verification code is:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <span style="font-size: 32px; font-weight: bold; background: #f0f0f0; padding: 15px 30px; border-radius: 5px; letter-spacing: 5px;">${otp}</span>
+          </div>
+          <p style="color: #666;">This code will expire in 10 minutes.</p>
+          <p style="color: #666; font-size: 12px;">If you didn't request this code, please ignore this email.</p>
+        </div>
+      `
+    });
+    
+    console.log(`📧 OTP sent to ${email}: ${otp}`);
+    
+    res.status(200).json({
+      success: true,
+      message: 'OTP sent successfully to your email',
+      email: email
+    });
+    
+  } catch (error) {
+    console.error('Error sending OTP:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error sending OTP',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/verify-otp - Verify OTP
+app.post('/api/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    
+    // Validation
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and OTP are required'
+      });
+    }
+    
+    // Find OTP record
+    const otpRecord = await otpCollection.findOne({
+      email: email.toLowerCase(),
+      otp: otp.toString(),
+      verified: false
+    });
+    
+    if (!otpRecord) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP'
+      });
+    }
+    
+    // Check if OTP is expired (10 minutes)
+    const now = new Date();
+    const otpAge = (now - otpRecord.createdAt) / 1000 / 60; // minutes
+    
+    if (otpAge > 10) {
+      // Clean up expired OTP
+      await otpCollection.deleteOne({ _id: otpRecord._id });
+      return res.status(400).json({
+        success: false,
+        message: 'OTP has expired. Please request a new one.'
+      });
+    }
+    
+    // Mark OTP as verified
+    await otpCollection.updateOne(
+      { _id: otpRecord._id },
+      { $set: { verified: true, verifiedAt: new Date() } }
+    );
+    
+    console.log(`✅ OTP verified for ${email}`);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Email verified successfully',
+      email: email,
+      verifiedAt: new Date()
+    });
+    
+  } catch (error) {
+    console.error('Error verifying OTP:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error verifying OTP',
+      error: error.message
+    });
+  }
+});
 
 // GET /api/products - Fetch all products
 app.get('/api/products', async (req, res) => {
@@ -419,6 +795,10 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'SM Furnishing Products API',
     endpoints: {
+      'POST /api/signup': 'User registration (name, email, password)',
+      'POST /api/login': 'User authentication (email, password)',
+      'POST /api/send-otp': 'Send OTP to email for verification (email)',
+      'POST /api/verify-otp': 'Verify OTP code (email, otp)',
       'GET /api/products': 'Get all products',
       'POST /api/products': 'Create new product',
       'GET /api/products/:id': 'Get single product',
@@ -433,7 +813,7 @@ app.get('/', (req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 async function startServer() {
   await connectToMongoDB();
