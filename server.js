@@ -253,6 +253,158 @@ app.get('/api/categories', async (req, res) => {
   }
 });
 
+// POST /api/categories - Add a new category
+app.post('/api/categories', async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    
+    // Validation
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name is required field'
+      });
+    }
+    
+    // Check if category name already exists
+    const existingCategory = await categoriesCollection.findOne({ 
+      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
+    });
+    
+    if (existingCategory) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category with this name already exists'
+      });
+    }
+    
+    // Create new category object
+    const newCategory = {
+      name: name.trim(),
+      description: description ? description.trim() : "",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    // Insert the category into database
+    const result = await categoriesCollection.insertOne(newCategory);
+    
+    // Get the inserted category
+    const insertedCategory = await categoriesCollection.findOne({ 
+      _id: result.insertedId 
+    });
+    
+    // Send success response
+    res.status(201).json({
+      success: true,
+      message: 'Category created successfully',
+      data: insertedCategory
+    });
+    
+    console.log(`✅ New category added: ${name}`);
+    
+  } catch (error) {
+    console.error('Error creating category:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating category',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/categories/:id - Get single category by ID
+app.get('/api/categories/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate ID format
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid category ID format'
+      });
+    }
+    
+    const category = await categoriesCollection.findOne({ 
+      _id: new ObjectId(id) 
+    });
+    
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: category
+    });
+    
+  } catch (error) {
+    console.error('Error fetching category:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching category',
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/categories/:id - Delete a category
+app.delete('/api/categories/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate ID format
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid category ID format'
+      });
+    }
+    
+    // Check if there are products using this category
+    const productsWithCategory = await productsCollection.countDocuments({ 
+      categoryId: id 
+    });
+    
+    if (productsWithCategory > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete category. ${productsWithCategory} product(s) are using this category`
+      });
+    }
+    
+    const result = await categoriesCollection.deleteOne({ 
+      _id: new ObjectId(id) 
+    });
+    
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Category deleted successfully'
+    });
+    
+    console.log(`🗑️ Category deleted: ${id}`);
+    
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting category',
+      error: error.message
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -272,6 +424,9 @@ app.get('/', (req, res) => {
       'GET /api/products/:id': 'Get single product',
       'DELETE /api/products/:id': 'Delete product',
       'GET /api/categories': 'Get all categories',
+      'POST /api/categories': 'Create new category',
+      'GET /api/categories/:id': 'Get single category',
+      'DELETE /api/categories/:id': 'Delete category',
       'GET /health': 'Health check'
     }
   });
