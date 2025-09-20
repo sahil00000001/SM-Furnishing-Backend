@@ -24,6 +24,7 @@ let productsCollection;
 let categoriesCollection;
 let usersCollection;
 let otpCollection;
+let latestproductsCollection;
 
 // Connect to MongoDB
 async function connectToMongoDB() {
@@ -37,6 +38,7 @@ async function connectToMongoDB() {
     categoriesCollection = db.collection('categories');
     usersCollection = db.collection('users');
     otpCollection = db.collection('otps');
+    latestproductsCollection = db.collection('latestproducts');
     
     // Create users collection with schema validation
     try {
@@ -603,6 +605,68 @@ app.delete('/api/products/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting product',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/latestproducts - Fetch all latest products
+app.get('/api/latestproducts', async (req, res) => {
+  try {
+    // Fetch all latest products from the collection
+    const latestproducts = await latestproductsCollection.find({}).toArray();
+    
+    // Send successful response
+    res.status(200).json({
+      success: true,
+      count: latestproducts.length,
+      data: latestproducts
+    });
+    
+  } catch (error) {
+    console.error('Error fetching latest products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching latest products',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/latestproducts/:id - Get single latest product by ID
+app.get('/api/latestproducts/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate ID format
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid latest product ID format'
+      });
+    }
+    
+    const latestproduct = await latestproductsCollection.findOne({ 
+      _id: new ObjectId(id) 
+    });
+    
+    if (!latestproduct) {
+      return res.status(404).json({
+        success: false,
+        message: 'Latest product not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: latestproduct
+    });
+    
+  } catch (error) {
+    console.error('Error fetching latest product:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching latest product',
       error: error.message
     });
   }
