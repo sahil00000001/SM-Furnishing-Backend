@@ -5,6 +5,8 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { sendEmail } = require('./utils/replitmail');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
 
 const app = express();
 
@@ -14,6 +16,33 @@ const JWT_SECRET = process.env.JWT_SECRET || 'sm-furnishing-jwt-secret-2024';
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Swagger configuration
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'SM Furnishing Products API',
+      version: '1.0.0',
+      description: 'Complete API for managing products, categories, latest products, and user authentication'
+    },
+    servers: [
+      {
+        url: 'http://localhost:5000',
+        description: 'Development server'
+      }
+    ]
+  },
+  apis: ['./server.js']
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+
+// Swagger UI route
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'SM Furnishing API Documentation'
+}));
 
 // MongoDB connection
 const uri = process.env.MONGODB_URI;
@@ -105,6 +134,54 @@ async function connectToMongoDB() {
   }
 }
 
+/**
+ * @swagger
+ * /api/signup:
+ *   post:
+ *     summary: User registration
+ *     description: Create a new user account with name, email, and password
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: User's full name
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: User's email address
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *                 description: User's password (minimum 6 characters)
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 token:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *       400:
+ *         description: Bad request - validation failed
+ */
 // POST /api/signup - User registration
 app.post('/api/signup', async (req, res) => {
   try {
@@ -206,6 +283,34 @@ app.post('/api/signup', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/login:
+ *   post:
+ *     summary: User authentication
+ *     description: Login with email and password to get JWT token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *       401:
+ *         description: Invalid credentials
+ */
 // POST /api/login - User authentication
 app.post('/api/login', async (req, res) => {
   try {
@@ -277,6 +382,32 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/send-otp:
+ *   post:
+ *     summary: Send OTP to email
+ *     description: Send a verification OTP code to user's email
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Email address to send OTP to
+ *     responses:
+ *       200:
+ *         description: OTP sent successfully
+ *       400:
+ *         description: Invalid email format
+ */
 // POST /api/send-otp - Send OTP to email
 app.post('/api/send-otp', async (req, res) => {
   try {
@@ -351,6 +482,35 @@ app.post('/api/send-otp', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/verify-otp:
+ *   post:
+ *     summary: Verify OTP code
+ *     description: Verify the OTP code sent to user's email
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               otp:
+ *                 type: string
+ *                 description: 6-digit OTP code
+ *     responses:
+ *       200:
+ *         description: OTP verified successfully
+ *       400:
+ *         description: Invalid or expired OTP
+ */
 // POST /api/verify-otp - Verify OTP
 app.post('/api/verify-otp', async (req, res) => {
   try {
@@ -416,6 +576,30 @@ app.post('/api/verify-otp', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/products:
+ *   get:
+ *     summary: Get all products
+ *     description: Fetch all products from the products collection
+ *     tags: [Products]
+ *     responses:
+ *       200:
+ *         description: List of all products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: number
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ */
 // GET /api/products - Fetch all products
 app.get('/api/products', async (req, res) => {
   try {
@@ -439,6 +623,44 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/products:
+ *   post:
+ *     summary: Create new product
+ *     description: Add a new product to the products collection
+ *     tags: [Products]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - description
+ *               - price
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               stock:
+ *                 type: number
+ *               categoryId:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *               imageUrl:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Product created successfully
+ *       400:
+ *         description: Validation error
+ */
 // POST /api/products - Add a new product
 app.post('/api/products', async (req, res) => {
   try {
@@ -530,6 +752,28 @@ app.post('/api/products', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/products/{id}:
+ *   get:
+ *     summary: Get single product by ID
+ *     description: Fetch a specific product by its ID
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Product ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product details
+ *       404:
+ *         description: Product not found
+ *       400:
+ *         description: Invalid ID format
+ */
 // GET /api/products/:id - Get single product by ID
 app.get('/api/products/:id', async (req, res) => {
   try {
@@ -569,6 +813,28 @@ app.get('/api/products/:id', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/products/{id}:
+ *   delete:
+ *     summary: Delete product
+ *     description: Delete a product by its ID
+ *     tags: [Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Product ID to delete
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Product deleted successfully
+ *       404:
+ *         description: Product not found
+ *       400:
+ *         description: Invalid ID format
+ */
 // DELETE /api/products/:id - Delete a product
 app.delete('/api/products/:id', async (req, res) => {
   try {
@@ -610,6 +876,65 @@ app.delete('/api/products/:id', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/latestproducts:
+ *   get:
+ *     summary: Get all latest products
+ *     description: Fetch all latest products from the latestproducts collection
+ *     tags: [Latest Products]
+ *     responses:
+ *       200:
+ *         description: List of all latest products
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: number
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       Collection:
+ *                         type: string
+ *                       Product_Name:
+ *                         type: string
+ *                       Category:
+ *                         type: string
+ *                       Sub_Category:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ *                       Size:
+ *                         type: string
+ *                       Dimensions:
+ *                         type: string
+ *                       Net_Qty:
+ *                         type: number
+ *                       Thread_Count:
+ *                         type: number
+ *                       Fabric:
+ *                         type: string
+ *                       Color:
+ *                         type: string
+ *                       Selling_Price:
+ *                         type: number
+ *                       Qty_in_Stock:
+ *                         type: number
+ *                       Description:
+ *                         type: string
+ *                       Wash_Care_Instructions:
+ *                         type: array
+ *                         items:
+ *                           type: string
+ */
 // GET /api/latestproducts - Fetch all latest products
 app.get('/api/latestproducts', async (req, res) => {
   try {
@@ -633,6 +958,37 @@ app.get('/api/latestproducts', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/latestproducts/{id}:
+ *   get:
+ *     summary: Get single latest product by ID
+ *     description: Fetch a specific latest product by its ID
+ *     tags: [Latest Products]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Latest product ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Latest product details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *       404:
+ *         description: Latest product not found
+ *       400:
+ *         description: Invalid ID format
+ */
 // GET /api/latestproducts/:id - Get single latest product by ID
 app.get('/api/latestproducts/:id', async (req, res) => {
   try {
@@ -672,6 +1028,30 @@ app.get('/api/latestproducts/:id', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/categories:
+ *   get:
+ *     summary: Get all categories
+ *     description: Fetch all categories from the categories collection
+ *     tags: [Categories]
+ *     responses:
+ *       200:
+ *         description: List of all categories
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: number
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ */
 // GET /api/categories - Get all categories
 app.get('/api/categories', async (req, res) => {
   try {
@@ -693,6 +1073,34 @@ app.get('/api/categories', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/categories:
+ *   post:
+ *     summary: Create new category
+ *     description: Add a new category to the categories collection
+ *     tags: [Categories]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Category name
+ *               description:
+ *                 type: string
+ *                 description: Category description
+ *     responses:
+ *       201:
+ *         description: Category created successfully
+ *       400:
+ *         description: Category name already exists or validation error
+ */
 // POST /api/categories - Add a new category
 app.post('/api/categories', async (req, res) => {
   try {
@@ -753,6 +1161,28 @@ app.post('/api/categories', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/categories/{id}:
+ *   get:
+ *     summary: Get single category by ID
+ *     description: Fetch a specific category by its ID
+ *     tags: [Categories]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Category ID
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Category details
+ *       404:
+ *         description: Category not found
+ *       400:
+ *         description: Invalid ID format
+ */
 // GET /api/categories/:id - Get single category by ID
 app.get('/api/categories/:id', async (req, res) => {
   try {
@@ -792,6 +1222,28 @@ app.get('/api/categories/:id', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/categories/{id}:
+ *   delete:
+ *     summary: Delete category
+ *     description: Delete a category by its ID (only if no products use it)
+ *     tags: [Categories]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Category ID to delete
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Category deleted successfully
+ *       400:
+ *         description: Cannot delete - products are using this category
+ *       404:
+ *         description: Category not found
+ */
 // DELETE /api/categories/:id - Delete a category
 app.delete('/api/categories/:id', async (req, res) => {
   try {
@@ -845,6 +1297,28 @@ app.delete('/api/categories/:id', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check
+ *     description: Check API server status and database connection
+ *     tags: [System]
+ *     responses:
+ *       200:
+ *         description: Server is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *                 database:
+ *                   type: string
+ */
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -858,6 +1332,7 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ 
     message: 'SM Furnishing Products API',
+    swagger_docs: 'http://localhost:5000/api-docs',
     endpoints: {
       'POST /api/signup': 'User registration (name, email, password)',
       'POST /api/login': 'User authentication (email, password)',
@@ -867,11 +1342,14 @@ app.get('/', (req, res) => {
       'POST /api/products': 'Create new product',
       'GET /api/products/:id': 'Get single product',
       'DELETE /api/products/:id': 'Delete product',
+      'GET /api/latestproducts': 'Get all latest products',
+      'GET /api/latestproducts/:id': 'Get single latest product',
       'GET /api/categories': 'Get all categories',
       'POST /api/categories': 'Create new category',
       'GET /api/categories/:id': 'Get single category',
       'DELETE /api/categories/:id': 'Delete category',
-      'GET /health': 'Health check'
+      'GET /health': 'Health check',
+      'GET /api-docs': 'Swagger API Documentation'
     }
   });
 });
