@@ -32,6 +32,13 @@ This is a Node.js Express API backend for managing products and categories. It c
 - `GET /api/categories/:id` - Get single category by ID
 - `DELETE /api/categories/:id` - Delete category by ID
 
+### Cart Management (Requires JWT Authentication)
+- `GET /api/cart` - Get user's cart or create empty one if doesn't exist
+- `POST /api/cart/add` - Add item to cart (productId, quantity)
+- `PUT /api/cart/update` - Update item quantity (productId, quantity)
+- `DELETE /api/cart/item/:productId` - Remove single item from cart
+- `DELETE /api/cart/clear` - Clear entire cart
+
 ### Form Data
 - `POST /api/form-data` - Store form submission (name, email, phoneNumber, orderDescription)
 
@@ -48,7 +55,7 @@ This is a Node.js Express API backend for managing products and categories. It c
 
 ## Database Schema
 - Database: `smFurnishing`
-- Collections: `products`, `categories`, `users`, `otps`, `form-data`, `newsletter-emails`
+- Collections: `products`, `categories`, `users`, `otps`, `cart`, `form-data`, `newsletter-emails`
 
 ### Users Collection
 - Required fields: name, email, password
@@ -78,6 +85,17 @@ This is a Node.js Express API backend for managing products and categories. It c
 - Indexes: email+submittedAt, status, submittedAt
 - Additional fields: submittedAt, status, createdAt, updatedAt
 
+### Cart Collection
+- Required fields: userId, items, totalAmount, totalItems, status
+- userId: ObjectId reference to users collection
+- items: Array of cart items with productId, productName, productImage, quantity, priceAtTime, addedAt
+- totalAmount: Calculated total price of all items
+- totalItems: Calculated total quantity of all items
+- status: Enum values - active, abandoned, converted
+- Unique index on userId (one cart per user)
+- Indexes: userId (unique), items.productId, status, updatedAt
+- Additional fields: createdAt, updatedAt
+
 ### Newsletter-emails Collection
 - Required fields: email
 - Email validation with regex pattern
@@ -88,6 +106,11 @@ This is a Node.js Express API backend for managing products and categories. It c
 - Additional fields: createdAt, updatedAt
 
 ## Recent Changes
+- 2025-09-21: Implemented complete cart management system with 5 API endpoints and JWT authentication
+- 2025-09-21: Added cart collection with MongoDB schema validation and proper indexes
+- 2025-09-21: Created JWT authentication middleware for secure cart operations
+- 2025-09-21: Cart system includes stock validation, price-at-time storage, and automatic total calculations
+- 2025-09-21: Added comprehensive API documentation for all cart endpoints
 - 2025-09-21: Added form-data and newsletter-emails API endpoints with MongoDB collections
 - 2025-09-21: Implemented form submission API with validation for name, email, phone, and large order descriptions
 - 2025-09-21: Created newsletter subscription API with duplicate email prevention

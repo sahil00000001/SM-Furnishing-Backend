@@ -15,6 +15,32 @@ const JWT_SECRET = process.env.JWT_SECRET || 'sm-furnishing-jwt-secret-2024';
 app.use(cors());
 app.use(express.json());
 
+// JWT Authentication middleware
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'Access denied. No token provided.',
+      error: 'Authentication required'
+    });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid or expired token.',
+        error: 'Authentication failed'
+      });
+    }
+    req.user = decoded;
+    next();
+  });
+};
+
 // MongoDB connection
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri);
@@ -27,6 +53,7 @@ let otpCollection;
 let latestproductsCollection;
 let formDataCollection;
 let newsletterEmailsCollection;
+let cartCollection;
 
 // Connect to MongoDB
 async function connectToMongoDB() {
@@ -43,6 +70,7 @@ async function connectToMongoDB() {
     latestproductsCollection = db.collection('latestproducts');
     formDataCollection = db.collection('form-data');
     newsletterEmailsCollection = db.collection('newsletter-emails');
+    cartCollection = db.collection('cart');
     
     // Create users collection with schema validation
     try {
@@ -220,6 +248,101 @@ async function connectToMongoDB() {
       console.log('✅ Newsletter-emails indexes created');
     } catch (error) {
       console.log('ℹ️ Newsletter-emails indexes already exist');
+    }
+    
+    // Create cart collection with schema validation
+    try {
+      await db.createCollection("cart", {
+        validator: {
+          $jsonSchema: {
+            bsonType: "object",
+            required: ["userId", "items", "totalAmount", "totalItems", "status"],
+            properties: {
+              userId: {
+                bsonType: "objectId",
+                description: "must be an ObjectId and is required"
+              },
+              items: {
+                bsonType: "array",
+                description: "must be an array of cart items",
+                items: {
+                  bsonType: "object",
+                  required: ["productId", "productName", "productImage", "quantity", "priceAtTime", "addedAt"],
+                  properties: {
+                    productId: {
+                      bsonType: "objectId",
+                      description: "must be an ObjectId and is required"
+                    },
+                    productName: {
+                      bsonType: "string",
+                      description: "must be a string and is required"
+                    },
+                    productImage: {
+                      bsonType: "string",
+                      description: "must be a string and is required"
+                    },
+                    quantity: {
+                      bsonType: "int",
+                      minimum: 1,
+                      description: "must be an integer >= 1 and is required"
+                    },
+                    priceAtTime: {
+                      bsonType: "number",
+                      minimum: 0,
+                      description: "must be a number >= 0 and is required"
+                    },
+                    addedAt: {
+                      bsonType: "date",
+                      description: "must be a date and is required"
+                    }
+                  }
+                }
+              },
+              totalAmount: {
+                bsonType: "number",
+                minimum: 0,
+                description: "must be a number >= 0 and is required"
+              },
+              totalItems: {
+                bsonType: "int",
+                minimum: 0,
+                description: "must be an integer >= 0 and is required"
+              },
+              createdAt: {
+                bsonType: "date",
+                description: "must be a date"
+              },
+              updatedAt: {
+                bsonType: "date",
+                description: "must be a date"
+              },
+              status: {
+                bsonType: "string",
+                enum: ["active", "abandoned", "converted"],
+                description: "must be one of: active, abandoned, converted and is required"
+              }
+            }
+          }
+        }
+      });
+      console.log('✅ Cart collection created with validation');
+    } catch (error) {
+      if (error.code === 48) {
+        console.log('ℹ️ Cart collection already exists');
+      } else {
+        console.log('⚠️ Error creating cart collection:', error.message);
+      }
+    }
+    
+    // Create indexes for cart collection
+    try {
+      await cartCollection.createIndex({ userId: 1 }, { unique: true });
+      await cartCollection.createIndex({ "items.productId": 1 });
+      await cartCollection.createIndex({ status: 1 });
+      await cartCollection.createIndex({ updatedAt: -1 });
+      console.log('✅ Cart collection indexes created');
+    } catch (error) {
+      console.log('ℹ️ Cart collection indexes already exist');
     }
     
     // Verify connection by counting documents
@@ -1136,6 +1259,394 @@ app.post('/api/newsletter-emails', async (req, res) => {
   }
 });
 
+// ===========================================
+// CART API ENDPOINTS
+// ===========================================
+
+// GET /api/cart - Get user's cart
+app.get('/api/cart', authenticateToken, async (req, res) => {
+  try {
+    const userId = new ObjectId(req.user.userId);
+    
+    // Find user's cart
+    let cart = await cartCollection.findOne({ userId, status: 'active' });
+    
+    // If no cart exists, create an empty one
+    if (!cart) {
+      cart = {
+        userId,
+        items: [],
+        totalAmount: 0,
+        totalItems: 0,
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      const result = await cartCollection.insertOne(cart);
+      cart._id = result.insertedId;
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Cart retrieved successfully',
+      cart: cart
+    });
+    
+  } catch (error) {
+    console.error('Error getting cart:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving cart',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/cart/add - Add item to cart
+app.post('/api/cart/add', authenticateToken, async (req, res) => {
+  try {
+    const { productId, quantity } = req.body;
+    const userId = new ObjectId(req.user.userId);
+    
+    // Validation
+    if (!productId || !quantity) {
+      return res.status(400).json({
+        success: false,
+        message: 'Product ID and quantity are required',
+        error: 'Missing required fields'
+      });
+    }
+    
+    if (quantity <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Quantity must be greater than 0',
+        error: 'Invalid quantity'
+      });
+    }
+    
+    // Check if product exists
+    const product = await productsCollection.findOne({ _id: new ObjectId(productId) });
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found',
+        error: 'Product does not exist'
+      });
+    }
+    
+    // Check stock availability
+    if (product.stock < quantity) {
+      return res.status(400).json({
+        success: false,
+        message: `Only ${product.stock} items available in stock`,
+        error: 'Insufficient stock'
+      });
+    }
+    
+    // Find or create cart
+    let cart = await cartCollection.findOne({ userId, status: 'active' });
+    
+    if (!cart) {
+      // Create new cart
+      cart = {
+        userId,
+        items: [],
+        totalAmount: 0,
+        totalItems: 0,
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+    }
+    
+    // Check if item already exists in cart
+    const existingItemIndex = cart.items.findIndex(item => 
+      item.productId.toString() === productId
+    );
+    
+    if (existingItemIndex >= 0) {
+      // Update existing item quantity
+      const newQuantity = cart.items[existingItemIndex].quantity + quantity;
+      
+      // Check total stock for updated quantity
+      if (product.stock < newQuantity) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot add ${quantity} items. Only ${product.stock - cart.items[existingItemIndex].quantity} more available`,
+          error: 'Insufficient stock for total quantity'
+        });
+      }
+      
+      cart.items[existingItemIndex].quantity = newQuantity;
+      cart.items[existingItemIndex].addedAt = new Date();
+    } else {
+      // Add new item to cart
+      const cartItem = {
+        productId: new ObjectId(productId),
+        productName: product.name,
+        productImage: product.imageUrl || '',
+        quantity: quantity,
+        priceAtTime: product.price,
+        addedAt: new Date()
+      };
+      cart.items.push(cartItem);
+    }
+    
+    // Recalculate totals
+    cart.totalAmount = cart.items.reduce((total, item) => 
+      total + (item.priceAtTime * item.quantity), 0
+    );
+    cart.totalItems = cart.items.reduce((total, item) => 
+      total + item.quantity, 0
+    );
+    cart.updatedAt = new Date();
+    
+    // Save cart
+    if (cart._id) {
+      await cartCollection.replaceOne({ _id: cart._id }, cart);
+    } else {
+      const result = await cartCollection.insertOne(cart);
+      cart._id = result.insertedId;
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Item added to cart successfully',
+      cart: cart
+    });
+    
+    console.log(`✅ Item added to cart - User: ${req.user.email}, Product: ${product.name}`);
+    
+  } catch (error) {
+    console.error('Error adding item to cart:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error adding item to cart',
+      error: error.message
+    });
+  }
+});
+
+// PUT /api/cart/update - Update item quantity
+app.put('/api/cart/update', authenticateToken, async (req, res) => {
+  try {
+    const { productId, quantity } = req.body;
+    const userId = new ObjectId(req.user.userId);
+    
+    // Validation
+    if (!productId || quantity === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Product ID and quantity are required',
+        error: 'Missing required fields'
+      });
+    }
+    
+    if (quantity < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Quantity cannot be negative',
+        error: 'Invalid quantity'
+      });
+    }
+    
+    // Find cart
+    const cart = await cartCollection.findOne({ userId, status: 'active' });
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cart not found',
+        error: 'No active cart exists'
+      });
+    }
+    
+    // Find item in cart
+    const itemIndex = cart.items.findIndex(item => 
+      item.productId.toString() === productId
+    );
+    
+    if (itemIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Item not found in cart',
+        error: 'Product not in cart'
+      });
+    }
+    
+    // Check stock if quantity > 0
+    if (quantity > 0) {
+      const product = await productsCollection.findOne({ _id: new ObjectId(productId) });
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: 'Product not found',
+          error: 'Product does not exist'
+        });
+      }
+      
+      if (product.stock < quantity) {
+        return res.status(400).json({
+          success: false,
+          message: `Only ${product.stock} items available in stock`,
+          error: 'Insufficient stock'
+        });
+      }
+    }
+    
+    // Update quantity or remove item
+    if (quantity === 0) {
+      cart.items.splice(itemIndex, 1);
+    } else {
+      cart.items[itemIndex].quantity = quantity;
+      cart.items[itemIndex].addedAt = new Date();
+    }
+    
+    // Recalculate totals
+    cart.totalAmount = cart.items.reduce((total, item) => 
+      total + (item.priceAtTime * item.quantity), 0
+    );
+    cart.totalItems = cart.items.reduce((total, item) => 
+      total + item.quantity, 0
+    );
+    cart.updatedAt = new Date();
+    
+    // Save cart
+    await cartCollection.replaceOne({ _id: cart._id }, cart);
+    
+    res.status(200).json({
+      success: true,
+      message: quantity === 0 ? 'Item removed from cart' : 'Cart updated successfully',
+      cart: cart
+    });
+    
+    console.log(`✅ Cart updated - User: ${req.user.email}, Product: ${productId}, Quantity: ${quantity}`);
+    
+  } catch (error) {
+    console.error('Error updating cart:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating cart',
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/cart/item/:productId - Remove single item
+app.delete('/api/cart/item/:productId', authenticateToken, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const userId = new ObjectId(req.user.userId);
+    
+    // Validation
+    if (!ObjectId.isValid(productId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid product ID format',
+        error: 'Invalid ObjectId'
+      });
+    }
+    
+    // Find cart
+    const cart = await cartCollection.findOne({ userId, status: 'active' });
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cart not found',
+        error: 'No active cart exists'
+      });
+    }
+    
+    // Find item in cart
+    const itemIndex = cart.items.findIndex(item => 
+      item.productId.toString() === productId
+    );
+    
+    if (itemIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Item not found in cart',
+        error: 'Product not in cart'
+      });
+    }
+    
+    // Remove item
+    const removedItem = cart.items[itemIndex];
+    cart.items.splice(itemIndex, 1);
+    
+    // Recalculate totals
+    cart.totalAmount = cart.items.reduce((total, item) => 
+      total + (item.priceAtTime * item.quantity), 0
+    );
+    cart.totalItems = cart.items.reduce((total, item) => 
+      total + item.quantity, 0
+    );
+    cart.updatedAt = new Date();
+    
+    // Save cart
+    await cartCollection.replaceOne({ _id: cart._id }, cart);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Item removed from cart successfully',
+      cart: cart
+    });
+    
+    console.log(`✅ Item removed from cart - User: ${req.user.email}, Product: ${removedItem.productName}`);
+    
+  } catch (error) {
+    console.error('Error removing item from cart:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error removing item from cart',
+      error: error.message
+    });
+  }
+});
+
+// DELETE /api/cart/clear - Clear entire cart
+app.delete('/api/cart/clear', authenticateToken, async (req, res) => {
+  try {
+    const userId = new ObjectId(req.user.userId);
+    
+    // Find cart
+    const cart = await cartCollection.findOne({ userId, status: 'active' });
+    if (!cart) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cart not found',
+        error: 'No active cart exists'
+      });
+    }
+    
+    // Clear cart
+    cart.items = [];
+    cart.totalAmount = 0;
+    cart.totalItems = 0;
+    cart.updatedAt = new Date();
+    
+    // Save cart
+    await cartCollection.replaceOne({ _id: cart._id }, cart);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Cart cleared successfully',
+      cart: cart
+    });
+    
+    console.log(`✅ Cart cleared - User: ${req.user.email}`);
+    
+  } catch (error) {
+    console.error('Error clearing cart:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error clearing cart',
+      error: error.message
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -1166,6 +1677,11 @@ app.get('/', (req, res) => {
       'DELETE /api/categories/:id': 'Delete category',
       'POST /api/form-data': 'Store form submission (name, email, phoneNumber, orderDescription)',
       'POST /api/newsletter-emails': 'Store email subscription (email)',
+      'GET /api/cart': 'Get user\'s cart (requires JWT token)',
+      'POST /api/cart/add': 'Add item to cart (productId, quantity) (requires JWT token)',
+      'PUT /api/cart/update': 'Update cart item quantity (productId, quantity) (requires JWT token)',
+      'DELETE /api/cart/item/:productId': 'Remove item from cart (requires JWT token)',
+      'DELETE /api/cart/clear': 'Clear entire cart (requires JWT token)',
       'GET /health': 'Health check'
     }
   });

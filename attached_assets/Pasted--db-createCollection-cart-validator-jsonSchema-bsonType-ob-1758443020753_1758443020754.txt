@@ -1,0 +1,75 @@
+
+db.createCollection("cart", {
+...   validator: {
+...     $jsonSchema: {
+...       bsonType: "object",
+...       required: ["userId", "items", "totalAmount", "totalItems", "status"],
+...       properties: {
+...         userId: {
+...           bsonType: "objectId",
+...           description: "must be an ObjectId and is required"
+...         },
+...         items: {
+...           bsonType: "array",
+...           description: "must be an array of cart items",
+...           items: {
+...             bsonType: "object",
+...             required: ["productId", "productName", "productImage", "quantity", "priceAtTime", "addedAt"],
+...             properties: {
+...               productId: {
+...                 bsonType: "objectId",
+...                 description: "must be an ObjectId and is required"
+...               },
+...               productName: {
+...                 bsonType: "string",
+...                 description: "must be a string and is required"
+...               },
+...               productImage: {
+...                 bsonType: "string",
+...                 description: "must be a string and is required"
+...               },
+...               quantity: {
+...                 bsonType: "int",
+...                 minimum: 1,
+...                 description: "must be an integer >= 1 and is required"
+...               },
+...               priceAtTime: {
+...                 bsonType: "number",
+...                 minimum: 0,
+...                 description: "must be a number >= 0 and is required"
+...               },
+...               addedAt: {
+...                 bsonType: "date",
+...                 description: "must be a date and is required"
+...               }
+...             }
+...           }
+...         },
+...         totalAmount: {
+...           bsonType: "number",
+...           minimum: 0,
+...           description: "must be a number >= 0 and is required"
+...         },
+...         totalItems: {
+...           bsonType: "int",
+...           minimum: 0,
+...           description: "must be an integer >= 0 and is required"
+...         },
+...         createdAt: {
+...           bsonType: "date",
+...           description: "must be a date"
+...         },
+...         updatedAt: {
+...           bsonType: "date",
+...           description: "must be a date"
+...         },
+...         status: {
+...           bsonType: "string",
+...           enum: ["active", "abandoned", "converted"],
+...           description: "must be one of: active, abandoned, converted and is required"
+...         }
+...       }
+...     }
+...   }
+... })
+...
