@@ -1,0 +1,126 @@
+db.createCollection("form-data", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["name", "email", "phoneNumber", "orderDescription"],
+      properties: {
+        name: {
+          bsonType: "string",
+          minLength: 2,
+          maxLength: 100,
+          description: "Name must be a string between 2 and 100 characters and is required"
+        },
+        email: {
+          bsonType: "string",
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+          description: "Must be a valid email address and is required"
+        },
+        phoneNumber: {
+          bsonType: "string",
+          pattern: "^\\+[1-9]\\d{0,3}[-\\.\\s]?\\(?\\d{1,4}\\)?[-\\.\\s]?\\d{1,4}[-\\.\\s]?\\d{1,9}$",
+          description: "Must be a valid international phone number with country code (e.g., +91-9876543210) and is required"
+        },
+        orderDescription: {
+          bsonType: "string",
+          minLength: 10,
+          maxLength: 10000,
+          description: "Order description must be between 10 and 10000 characters and is required"
+        },
+        submittedAt: {
+          bsonType: "date",
+          description: "Submission timestamp"
+        },
+        status: {
+          bsonType: "string",
+          enum: ["new", "contacted", "in-progress", "completed"],
+          description: "Status must be one of the allowed values"
+        },
+        createdAt: {
+          bsonType: "date",
+          description: "Creation timestamp"
+        },
+        updatedAt: {
+          bsonType: "date",
+          description: "Last update timestamp"
+        }
+      }
+    }
+  }
+})
+
+// Create indexes for better performance
+db["form-data"].createIndex({ email: 1, submittedAt: -1 })
+db["form-data"].createIndex({ status: 1 })
+db["form-data"].createIndex({ submittedAt: -1 })
+
+// =====================================================
+// 2. Create newsletter-emails Collection with Validation
+// =====================================================
+
+db.createCollection("newsletter-emails", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["email"],
+      properties: {
+        email: {
+          bsonType: "string",
+          pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+          description: "Must be a valid email address and is required"
+        },
+        subscribedAt: {
+          bsonType: "date",
+          description: "Subscription timestamp"
+        },
+        isActive: {
+          bsonType: "bool",
+          description: "Subscription status"
+        },
+        source: {
+          bsonType: "string",
+          enum: ["website", "mobile", "admin", "import", "campaign"],
+          description: "Source of subscription"
+        },
+        createdAt: {
+          bsonType: "date",
+          description: "Creation timestamp"
+        },
+        updatedAt: {
+          bsonType: "date",
+          description: "Last update timestamp"
+        }
+      }
+    }
+  }
+})
+
+// Create unique index to prevent duplicate emails
+db["newsletter-emails"].createIndex({ email: 1 }, { unique: true })
+db["newsletter-emails"].createIndex({ subscribedAt: -1 })
+db["newsletter-emails"].createIndex({ isActive: 1 })
+
+// =====================================================
+// 3. Test Insertions
+// =====================================================
+
+// Test form-data insertion
+db["form-data"].insertOne({
+  name: "Rahul Sharma",
+  email: "rahul@example.com",
+  phoneNumber: "+91-9876543210",
+  orderDescription: "I am interested in purchasing the Gulnaar Collection for my new home. Need 3 king-size bedsheet sets with matching pillow covers. Please provide bulk discount pricing and delivery options to Delhi.",
+  submittedAt: new Date(),
+  status: "new",
+  createdAt: new Date(),
+  updatedAt: new Date()
+})
+
+// Test newsletter-emails insertion
+db["newsletter-emails"].insertOne({
+  email: "subscriber@example.com",
+  subscribedAt: new Date(),
+  isActive: true,
+  source: "website",
+  createdAt: new Date(),
+  updatedAt: new Date()
+})

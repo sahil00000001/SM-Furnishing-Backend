@@ -25,6 +25,8 @@ let categoriesCollection;
 let usersCollection;
 let otpCollection;
 let latestproductsCollection;
+let formDataCollection;
+let newsletterEmailsCollection;
 
 // Connect to MongoDB
 async function connectToMongoDB() {
@@ -39,6 +41,8 @@ async function connectToMongoDB() {
     usersCollection = db.collection('users');
     otpCollection = db.collection('otps');
     latestproductsCollection = db.collection('latestproducts');
+    formDataCollection = db.collection('form-data');
+    newsletterEmailsCollection = db.collection('newsletter-emails');
     
     // Create users collection with schema validation
     try {
@@ -89,6 +93,133 @@ async function connectToMongoDB() {
       console.log('✅ OTP collection configured with TTL index');
     } catch (error) {
       console.log('ℹ️ OTP TTL index already exists');
+    }
+    
+    // Create form-data collection with schema validation
+    try {
+      await db.createCollection("form-data", {
+        validator: {
+          $jsonSchema: {
+            bsonType: "object",
+            required: ["name", "email", "phoneNumber", "orderDescription"],
+            properties: {
+              name: {
+                bsonType: "string",
+                minLength: 2,
+                maxLength: 100,
+                description: "Name must be a string between 2 and 100 characters and is required"
+              },
+              email: {
+                bsonType: "string",
+                pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+                description: "Must be a valid email address and is required"
+              },
+              phoneNumber: {
+                bsonType: "string",
+                pattern: "^\\+[1-9]\\d{0,3}[-\\.\\s]?\\(?\\d{1,4}\\)?[-\\.\\s]?\\d{1,4}[-\\.\\s]?\\d{1,9}$",
+                description: "Must be a valid international phone number with country code and is required"
+              },
+              orderDescription: {
+                bsonType: "string",
+                minLength: 10,
+                maxLength: 10000,
+                description: "Order description must be between 10 and 10000 characters and is required"
+              },
+              submittedAt: {
+                bsonType: "date",
+                description: "Submission timestamp"
+              },
+              status: {
+                bsonType: "string",
+                enum: ["new", "contacted", "in-progress", "completed"],
+                description: "Status must be one of the allowed values"
+              },
+              createdAt: {
+                bsonType: "date",
+                description: "Creation timestamp"
+              },
+              updatedAt: {
+                bsonType: "date",
+                description: "Last update timestamp"
+              }
+            }
+          }
+        }
+      });
+      console.log('✅ Form-data collection created with validation');
+    } catch (error) {
+      if (error.code === 48) {
+        console.log('ℹ️ Form-data collection already exists');
+      } else {
+        console.log('⚠️ Error creating form-data collection:', error.message);
+      }
+    }
+    
+    // Create indexes for form-data collection
+    try {
+      await formDataCollection.createIndex({ email: 1, submittedAt: -1 });
+      await formDataCollection.createIndex({ status: 1 });
+      await formDataCollection.createIndex({ submittedAt: -1 });
+      console.log('✅ Form-data indexes created');
+    } catch (error) {
+      console.log('ℹ️ Form-data indexes already exist');
+    }
+    
+    // Create newsletter-emails collection with schema validation
+    try {
+      await db.createCollection("newsletter-emails", {
+        validator: {
+          $jsonSchema: {
+            bsonType: "object",
+            required: ["email"],
+            properties: {
+              email: {
+                bsonType: "string",
+                pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+                description: "Must be a valid email address and is required"
+              },
+              subscribedAt: {
+                bsonType: "date",
+                description: "Subscription timestamp"
+              },
+              isActive: {
+                bsonType: "bool",
+                description: "Subscription status"
+              },
+              source: {
+                bsonType: "string",
+                enum: ["website", "mobile", "admin", "import", "campaign"],
+                description: "Source of subscription"
+              },
+              createdAt: {
+                bsonType: "date",
+                description: "Creation timestamp"
+              },
+              updatedAt: {
+                bsonType: "date",
+                description: "Last update timestamp"
+              }
+            }
+          }
+        }
+      });
+      console.log('✅ Newsletter-emails collection created with validation');
+    } catch (error) {
+      if (error.code === 48) {
+        console.log('ℹ️ Newsletter-emails collection already exists');
+      } else {
+        console.log('⚠️ Error creating newsletter-emails collection:', error.message);
+      }
+    }
+    
+    // Create indexes for newsletter-emails collection
+    try {
+      await newsletterEmailsCollection.createIndex({ email: 1 }, { unique: true });
+      await newsletterEmailsCollection.createIndex({ subscribedAt: -1 });
+      await newsletterEmailsCollection.createIndex({ isActive: 1 });
+      console.log('✅ Newsletter-emails indexes created');
+    } catch (error) {
+      console.log('ℹ️ Newsletter-emails indexes already exist');
     }
     
     // Verify connection by counting documents
@@ -845,6 +976,166 @@ app.delete('/api/categories/:id', async (req, res) => {
   }
 });
 
+// POST /api/form-data - Store form submission
+app.post('/api/form-data', async (req, res) => {
+  try {
+    const { name, email, phoneNumber, orderDescription } = req.body;
+    
+    // Validation
+    if (!name || !email || !phoneNumber || !orderDescription) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, email, phone number, and order description are required fields'
+      });
+    }
+    
+    // Validate name length
+    if (name.length < 2 || name.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name must be between 2 and 100 characters'
+      });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid email address'
+      });
+    }
+    
+    // Validate phone number format
+    const phoneRegex = /^\+[1-9]\d{0,3}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}$/;
+    if (!phoneRegex.test(phoneNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid international phone number with country code (e.g., +91-9876543210)'
+      });
+    }
+    
+    // Validate order description length
+    if (orderDescription.length < 10 || orderDescription.length > 10000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order description must be between 10 and 10000 characters'
+      });
+    }
+    
+    // Create new form submission object
+    const newFormData = {
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      phoneNumber: phoneNumber.trim(),
+      orderDescription: orderDescription.trim(),
+      submittedAt: new Date(),
+      status: "new",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    // Insert the form data into database
+    const result = await formDataCollection.insertOne(newFormData);
+    
+    // Get the inserted form data
+    const insertedFormData = await formDataCollection.findOne({ 
+      _id: result.insertedId 
+    });
+    
+    // Send success response
+    res.status(201).json({
+      success: true,
+      message: 'Form data submitted successfully',
+      data: insertedFormData
+    });
+    
+    console.log(`✅ New form submission from: ${email}`);
+    
+  } catch (error) {
+    console.error('Error storing form data:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error storing form data',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/newsletter-emails - Store email subscription
+app.post('/api/newsletter-emails', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    // Validation
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email address is required'
+      });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid email address'
+      });
+    }
+    
+    // Check if email already exists
+    const existingEmail = await newsletterEmailsCollection.findOne({ 
+      email: email.toLowerCase() 
+    });
+    
+    if (existingEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'This email address is already subscribed to our newsletter'
+      });
+    }
+    
+    // Create new email subscription object
+    const newEmailSubscription = {
+      email: email.toLowerCase().trim(),
+      subscribedAt: new Date(),
+      isActive: true,
+      source: "website",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    // Insert the email subscription into database
+    const result = await newsletterEmailsCollection.insertOne(newEmailSubscription);
+    
+    // Send success response
+    res.status(201).json({
+      success: true,
+      message: 'Email address has been added successfully'
+    });
+    
+    console.log(`✅ New newsletter subscription: ${email}`);
+    
+  } catch (error) {
+    console.error('Error storing newsletter email:', error);
+    
+    // Handle duplicate email error from unique index
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'This email address is already subscribed to our newsletter'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Error storing email address',
+      error: error.message
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -873,6 +1164,8 @@ app.get('/', (req, res) => {
       'POST /api/categories': 'Create new category',
       'GET /api/categories/:id': 'Get single category',
       'DELETE /api/categories/:id': 'Delete category',
+      'POST /api/form-data': 'Store form submission (name, email, phoneNumber, orderDescription)',
+      'POST /api/newsletter-emails': 'Store email subscription (email)',
       'GET /health': 'Health check'
     }
   });

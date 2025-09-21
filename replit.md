@@ -7,9 +7,10 @@ This is a Node.js Express API backend for managing products and categories. It c
 - ✅ Dependencies installed (Express, MongoDB, CORS, Nodemon)
 - ✅ Server configured for Replit environment (0.0.0.0:5000)
 - ✅ Workflow configured for development server
-- ✅ MongoDB connection established (6 products found)
+- ✅ MongoDB connection established (2 products found)
 - ✅ API endpoints tested and working
 - ✅ Deployment configured for VM target
+- ✅ GitHub import completed and project ready for use
 
 ## API Endpoints
 
@@ -31,6 +32,12 @@ This is a Node.js Express API backend for managing products and categories. It c
 - `GET /api/categories/:id` - Get single category by ID
 - `DELETE /api/categories/:id` - Delete category by ID
 
+### Form Data
+- `POST /api/form-data` - Store form submission (name, email, phoneNumber, orderDescription)
+
+### Newsletter
+- `POST /api/newsletter-emails` - Store email subscription (email)
+
 ### System
 - `GET /` - API information and available endpoints
 - `GET /health` - Health check and database status
@@ -41,7 +48,7 @@ This is a Node.js Express API backend for managing products and categories. It c
 
 ## Database Schema
 - Database: `smFurnishing`
-- Collections: `products`, `categories`, `users`, `otps`
+- Collections: `products`, `categories`, `users`, `otps`, `form-data`, `newsletter-emails`
 
 ### Users Collection
 - Required fields: name, email, password
@@ -61,7 +68,34 @@ This is a Node.js Express API backend for managing products and categories. It c
 - TTL index: expires after 10 minutes (600 seconds)
 - Email service: Replit Mail integration
 
+### Form-data Collection
+- Required fields: name, email, phoneNumber, orderDescription
+- Name validation: 2-100 characters
+- Email validation: regex pattern
+- Phone validation: international format with country code (e.g., +91-9876543210)
+- Order description: 10-10000 characters (supports large text)
+- Status field: new, contacted, in-progress, completed
+- Indexes: email+submittedAt, status, submittedAt
+- Additional fields: submittedAt, status, createdAt, updatedAt
+
+### Newsletter-emails Collection
+- Required fields: email
+- Email validation with regex pattern
+- Unique index on email field to prevent duplicates
+- Optional fields: subscribedAt, isActive, source
+- Source options: website, mobile, admin, import, campaign
+- Indexes: email (unique), subscribedAt, isActive
+- Additional fields: createdAt, updatedAt
+
 ## Recent Changes
+- 2025-09-21: Added form-data and newsletter-emails API endpoints with MongoDB collections
+- 2025-09-21: Implemented form submission API with validation for name, email, phone, and large order descriptions
+- 2025-09-21: Created newsletter subscription API with duplicate email prevention
+- 2025-09-21: Added MongoDB schema validation and performance indexes for new collections
+- 2025-09-21: Updated API documentation to include new endpoints
+- 2025-09-21: Completed GitHub import setup - all dependencies installed and verified working
+- 2025-09-21: Confirmed MongoDB Atlas connection and API endpoints functionality
+- 2025-09-21: Verified deployment configuration for VM target deployment
 - 2025-09-19: Implemented email OTP verification system with send-otp and verify-otp endpoints
 - 2025-09-19: Added Replit Mail integration for sending OTP emails with HTML formatting
 - 2025-09-19: Created OTPs collection with TTL index for automatic expiration
