@@ -558,7 +558,7 @@ async function connectToMongoDB() {
       await newOrdersCollection.createIndex({ "payment.status": 1, "order_date": -1 });
       await newOrdersCollection.createIndex({ "payment.razorpay_order_id": 1 }, { sparse: true });
       await newOrdersCollection.createIndex({ "payment.razorpay_payment_id": 1 }, { sparse: true });
-      await newOrdersCollection.createIndex({ "invoice_number": 1 }, { sparse: true, unique: true, partialFilterExpression: { "invoice_number": { $ne: null } } });
+      await newOrdersCollection.createIndex({ "invoice_number": 1 }, { sparse: true });
       console.log('✅ New_orders collection indexes created');
     } catch (error) {
       console.log('ℹ️ New_orders collection indexes already exist');
@@ -1970,7 +1970,7 @@ app.post('/api/orders', async (req, res) => {
       },
       shipping: orderData.shipping || null,
       notes: orderData.notes || null,
-      invoice_number: orderData.invoice_number || null,
+      invoice_number: orderData.invoice_number || `INV-${orderData.order_id}-${Date.now()}`,
       is_deleted: orderData.is_deleted || false,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -1994,12 +1994,25 @@ app.post('/api/orders', async (req, res) => {
   } catch (error) {
     console.error('Error saving order:', error);
     
-    // Handle duplicate order ID error
+    // Handle duplicate key errors
     if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Order with this ID already exists'
-      });
+      if (error.keyPattern && error.keyPattern.order_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Order with this ID already exists'
+        });
+      } else if (error.keyPattern && error.keyPattern.invoice_number) {
+        return res.status(400).json({
+          success: false,
+          message: 'Order with this invoice number already exists'
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Duplicate data detected',
+          error: error.errmsg
+        });
+      }
     }
     
     res.status(500).json({
