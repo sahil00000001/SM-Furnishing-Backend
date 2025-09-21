@@ -54,6 +54,7 @@ let latestproductsCollection;
 let formDataCollection;
 let newsletterEmailsCollection;
 let cartCollection;
+let newOrdersCollection;
 
 // Connect to MongoDB
 async function connectToMongoDB() {
@@ -71,6 +72,7 @@ async function connectToMongoDB() {
     formDataCollection = db.collection('form-data');
     newsletterEmailsCollection = db.collection('newsletter-emails');
     cartCollection = db.collection('cart');
+    newOrdersCollection = db.collection('new_orders');
     
     // Create users collection with schema validation
     try {
@@ -343,6 +345,223 @@ async function connectToMongoDB() {
       console.log('✅ Cart collection indexes created');
     } catch (error) {
       console.log('ℹ️ Cart collection indexes already exist');
+    }
+    
+    // Create new_orders collection with schema validation
+    try {
+      await db.createCollection("new_orders", {
+        validator: {
+          $jsonSchema: {
+            bsonType: "object",
+            required: ["order_id", "order_date", "status", "user", "items", "customer", "pricing", "payment"],
+            properties: {
+              order_id: {
+                bsonType: "string",
+                description: "Unique order identifier - required"
+              },
+              order_date: {
+                bsonType: "date",
+                description: "Order creation date - required"
+              },
+              status: {
+                bsonType: "string",
+                enum: ["pending", "processing", "shipped", "completed", "cancelled", "refunded"],
+                description: "Order status - required"
+              },
+              user: {
+                bsonType: "object",
+                required: ["username", "user_email"],
+                properties: {
+                  user_id: {
+                    bsonType: ["objectId", "null"],
+                    description: "Reference to User collection - optional"
+                  },
+                  username: {
+                    bsonType: "string",
+                    description: "Username - required"
+                  },
+                  user_email: {
+                    bsonType: "string",
+                    pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+                    description: "User email - required"
+                  }
+                }
+              },
+              items: {
+                bsonType: "array",
+                minItems: 1,
+                items: {
+                  bsonType: "object",
+                  required: ["product_id", "product_name", "quantity", "price"],
+                  properties: {
+                    product_id: {
+                      bsonType: "string",
+                      description: "Product ID - required"
+                    },
+                    product_name: {
+                      bsonType: "string",
+                      description: "Product name - required"
+                    },
+                    quantity: {
+                      bsonType: "int",
+                      minimum: 1,
+                      description: "Quantity - minimum 1"
+                    },
+                    price: {
+                      bsonType: "number",
+                      minimum: 0,
+                      description: "Price at time of order"
+                    }
+                  }
+                }
+              },
+              customer: {
+                bsonType: "object",
+                required: ["name", "email", "phone", "address", "city", "state", "pin_code", "country"],
+                properties: {
+                  name: {
+                    bsonType: "string"
+                  },
+                  email: {
+                    bsonType: "string",
+                    pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+                  },
+                  phone: {
+                    bsonType: "string"
+                  },
+                  address: {
+                    bsonType: "string"
+                  },
+                  city: {
+                    bsonType: "string"
+                  },
+                  state: {
+                    bsonType: "string"
+                  },
+                  pin_code: {
+                    bsonType: "string"
+                  },
+                  country: {
+                    bsonType: "string"
+                  }
+                }
+              },
+              pricing: {
+                bsonType: "object",
+                required: ["subtotal", "tax", "shipping", "total"],
+                properties: {
+                  subtotal: {
+                    bsonType: "number",
+                    minimum: 0
+                  },
+                  tax: {
+                    bsonType: "number",
+                    minimum: 0
+                  },
+                  shipping: {
+                    bsonType: "number",
+                    minimum: 0
+                  },
+                  discount: {
+                    bsonType: ["number", "null"],
+                    minimum: 0
+                  },
+                  total: {
+                    bsonType: "number",
+                    minimum: 0
+                  }
+                }
+              },
+              payment: {
+                bsonType: "object",
+                required: ["method", "status"],
+                properties: {
+                  method: {
+                    bsonType: "string",
+                    enum: ["razorpay", "stripe", "paypal", "cod", "bank_transfer"]
+                  },
+                  status: {
+                    bsonType: "string",
+                    enum: ["pending", "processing", "verified", "failed", "refunded"]
+                  },
+                  razorpay_order_id: {
+                    bsonType: ["string", "null"]
+                  },
+                  razorpay_payment_id: {
+                    bsonType: ["string", "null"]
+                  },
+                  razorpay_signature: {
+                    bsonType: ["string", "null"]
+                  },
+                  transaction_id: {
+                    bsonType: ["string", "null"]
+                  },
+                  payment_date: {
+                    bsonType: ["date", "null"]
+                  }
+                }
+              },
+              shipping: {
+                bsonType: ["object", "null"],
+                properties: {
+                  carrier: {
+                    bsonType: ["string", "null"]
+                  },
+                  tracking_number: {
+                    bsonType: ["string", "null"]
+                  },
+                  shipped_date: {
+                    bsonType: ["date", "null"]
+                  },
+                  delivered_date: {
+                    bsonType: ["date", "null"]
+                  }
+                }
+              },
+              notes: {
+                bsonType: ["string", "null"]
+              },
+              invoice_number: {
+                bsonType: ["string", "null"]
+              },
+              is_deleted: {
+                bsonType: ["bool", "null"]
+              },
+              createdAt: {
+                bsonType: ["date", "null"]
+              },
+              updatedAt: {
+                bsonType: ["date", "null"]
+              }
+            }
+          }
+        }
+      });
+      console.log('✅ New_orders collection created with validation');
+    } catch (error) {
+      if (error.code === 48) {
+        console.log('ℹ️ New_orders collection already exists');
+      } else {
+        console.log('⚠️ Error creating new_orders collection:', error.message);
+      }
+    }
+    
+    // Create indexes for new_orders collection
+    try {
+      await newOrdersCollection.createIndex({ "order_id": 1 }, { unique: true });
+      await newOrdersCollection.createIndex({ "order_date": -1 });
+      await newOrdersCollection.createIndex({ "status": 1 });
+      await newOrdersCollection.createIndex({ "user.user_email": 1 });
+      await newOrdersCollection.createIndex({ "customer.email": 1 });
+      await newOrdersCollection.createIndex({ "payment.status": 1 });
+      await newOrdersCollection.createIndex({ "status": 1, "order_date": -1 });
+      await newOrdersCollection.createIndex({ "payment.status": 1, "order_date": -1 });
+      await newOrdersCollection.createIndex({ "payment.razorpay_order_id": 1 }, { sparse: true });
+      await newOrdersCollection.createIndex({ "payment.razorpay_payment_id": 1 }, { sparse: true });
+      await newOrdersCollection.createIndex({ "invoice_number": 1 }, { sparse: true, unique: true, partialFilterExpression: { "invoice_number": { $ne: null } } });
+      console.log('✅ New_orders collection indexes created');
+    } catch (error) {
+      console.log('ℹ️ New_orders collection indexes already exist');
     }
     
     // Verify connection by counting documents
@@ -1647,6 +1866,196 @@ app.delete('/api/cart/clear', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/orders - Save order data
+app.post('/api/orders', async (req, res) => {
+  try {
+    const orderData = req.body;
+    
+    // Basic validation - required fields
+    const requiredFields = ['order_id', 'order_date', 'status', 'user', 'items', 'customer', 'pricing', 'payment'];
+    const missingFields = requiredFields.filter(field => !orderData[field]);
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(', ')}`
+      });
+    }
+    
+    // Validate user object
+    if (!orderData.user.username || !orderData.user.user_email) {
+      return res.status(400).json({
+        success: false,
+        message: 'User username and user_email are required'
+      });
+    }
+    
+    // Validate items array
+    if (!Array.isArray(orderData.items) || orderData.items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order must contain at least one item'
+      });
+    }
+    
+    // Validate customer object
+    const customerRequiredFields = ['name', 'email', 'phone', 'address', 'city', 'state', 'pin_code', 'country'];
+    const missingCustomerFields = customerRequiredFields.filter(field => !orderData.customer[field]);
+    
+    if (missingCustomerFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing customer fields: ${missingCustomerFields.join(', ')}`
+      });
+    }
+    
+    // Validate payment object
+    if (!orderData.payment.method || !orderData.payment.status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment method and status are required'
+      });
+    }
+    
+    // Check if order_id already exists
+    const existingOrder = await newOrdersCollection.findOne({ order_id: orderData.order_id });
+    if (existingOrder) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order with this ID already exists'
+      });
+    }
+    
+    // Create new order object with proper formatting
+    const newOrder = {
+      order_id: orderData.order_id,
+      order_date: new Date(orderData.order_date),
+      status: orderData.status,
+      user: {
+        user_id: orderData.user.user_id ? new ObjectId(orderData.user.user_id) : null,
+        username: orderData.user.username,
+        user_email: orderData.user.user_email.toLowerCase()
+      },
+      items: orderData.items.map(item => ({
+        product_id: item.product_id,
+        product_name: item.product_name,
+        quantity: parseInt(item.quantity),
+        price: parseFloat(item.price)
+      })),
+      customer: {
+        name: orderData.customer.name,
+        email: orderData.customer.email.toLowerCase(),
+        phone: orderData.customer.phone,
+        address: orderData.customer.address,
+        city: orderData.customer.city,
+        state: orderData.customer.state,
+        pin_code: orderData.customer.pin_code,
+        country: orderData.customer.country
+      },
+      pricing: {
+        subtotal: parseFloat(orderData.pricing.subtotal),
+        tax: parseFloat(orderData.pricing.tax),
+        shipping: parseFloat(orderData.pricing.shipping),
+        discount: orderData.pricing.discount ? parseFloat(orderData.pricing.discount) : null,
+        total: parseFloat(orderData.pricing.total)
+      },
+      payment: {
+        method: orderData.payment.method,
+        status: orderData.payment.status,
+        razorpay_order_id: orderData.payment.razorpay_order_id || null,
+        razorpay_payment_id: orderData.payment.razorpay_payment_id || null,
+        razorpay_signature: orderData.payment.razorpay_signature || null,
+        transaction_id: orderData.payment.transaction_id || null,
+        payment_date: orderData.payment.payment_date ? new Date(orderData.payment.payment_date) : null
+      },
+      shipping: orderData.shipping || null,
+      notes: orderData.notes || null,
+      invoice_number: orderData.invoice_number || null,
+      is_deleted: orderData.is_deleted || false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    // Insert the order into database
+    const result = await newOrdersCollection.insertOne(newOrder);
+    
+    // Get the inserted order
+    const insertedOrder = await newOrdersCollection.findOne({ _id: result.insertedId });
+    
+    // Send success response
+    res.status(201).json({
+      success: true,
+      message: 'Order saved successfully',
+      order: insertedOrder
+    });
+    
+    console.log(`✅ New order saved: ${orderData.order_id} for ${orderData.customer.email}`);
+    
+  } catch (error) {
+    console.error('Error saving order:', error);
+    
+    // Handle duplicate order ID error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order with this ID already exists'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Error saving order',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/orders/:email - Fetch orders by email
+app.get('/api/orders/:email', async (req, res) => {
+  try {
+    const email = req.params.email.toLowerCase();
+    
+    // Validate email format
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email address'
+      });
+    }
+    
+    // Find orders by email - search both user.user_email and customer.email
+    const orders = await newOrdersCollection.find({
+      $or: [
+        { "user.user_email": email },
+        { "customer.email": email }
+      ],
+      is_deleted: { $ne: true }
+    })
+    .sort({ order_date: -1 }) // Sort by order date, newest first
+    .toArray();
+    
+    // Send response
+    res.status(200).json({
+      success: true,
+      message: orders.length > 0 ? `Found ${orders.length} orders` : 'No orders found for this email',
+      count: orders.length,
+      email: email,
+      orders: orders
+    });
+    
+    console.log(`✅ Orders fetched for email: ${email} - Found ${orders.length} orders`);
+    
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching orders',
+      error: error.message
+    });
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ 
@@ -1682,6 +2091,8 @@ app.get('/', (req, res) => {
       'PUT /api/cart/update': 'Update cart item quantity (productId, quantity) (requires JWT token)',
       'DELETE /api/cart/item/:productId': 'Remove item from cart (requires JWT token)',
       'DELETE /api/cart/clear': 'Clear entire cart (requires JWT token)',
+      'POST /api/orders': 'Save order data (order_id, user, items, customer, pricing, payment)',
+      'GET /api/orders/:email': 'Fetch all orders by email address',
       'GET /health': 'Health check'
     }
   });

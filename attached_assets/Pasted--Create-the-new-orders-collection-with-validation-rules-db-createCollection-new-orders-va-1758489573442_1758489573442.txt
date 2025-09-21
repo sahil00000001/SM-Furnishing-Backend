@@ -1,0 +1,228 @@
+// Create the new_orders collection with validation rules
+db.createCollection("new_orders", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["order_id", "order_date", "status", "user", "items", "customer", "pricing", "payment"],
+      properties: {
+        order_id: {
+          bsonType: "string",
+          description: "Unique order identifier - required"
+        },
+        order_date: {
+          bsonType: "date",
+          description: "Order creation date - required"
+        },
+        status: {
+          bsonType: "string",
+          enum: ["pending", "processing", "shipped", "completed", "cancelled", "refunded"],
+          description: "Order status - required"
+        },
+        user: {
+          bsonType: "object",
+          required: ["username", "user_email"],
+          properties: {
+            user_id: {
+              bsonType: ["objectId", "null"],
+              description: "Reference to User collection - optional"
+            },
+            username: {
+              bsonType: "string",
+              description: "Username - required"
+            },
+            user_email: {
+              bsonType: "string",
+              pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+              description: "User email - required"
+            }
+          }
+        },
+        items: {
+          bsonType: "array",
+          minItems: 1,
+          items: {
+            bsonType: "object",
+            required: ["product_id", "product_name", "quantity", "price"],
+            properties: {
+              product_id: {
+                bsonType: "string",
+                description: "Product ID - required"
+              },
+              product_name: {
+                bsonType: "string",
+                description: "Product name - required"
+              },
+              quantity: {
+                bsonType: "int",
+                minimum: 1,
+                description: "Quantity - minimum 1"
+              },
+              price: {
+                bsonType: "number",
+                minimum: 0,
+                description: "Price at time of order"
+              }
+            }
+          }
+        },
+        customer: {
+          bsonType: "object",
+          required: ["name", "email", "phone", "address", "city", "state", "pin_code", "country"],
+          properties: {
+            name: {
+              bsonType: "string"
+            },
+            email: {
+              bsonType: "string",
+              pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+            },
+            phone: {
+              bsonType: "string"
+            },
+            address: {
+              bsonType: "string"
+            },
+            city: {
+              bsonType: "string"
+            },
+            state: {
+              bsonType: "string"
+            },
+            pin_code: {
+              bsonType: "string"
+            },
+            country: {
+              bsonType: "string"
+            }
+          }
+        },
+        pricing: {
+          bsonType: "object",
+          required: ["subtotal", "tax", "shipping", "total"],
+          properties: {
+            subtotal: {
+              bsonType: "number",
+              minimum: 0
+            },
+            tax: {
+              bsonType: "number",
+              minimum: 0
+            },
+            shipping: {
+              bsonType: "number",
+              minimum: 0
+            },
+            discount: {
+              bsonType: ["number", "null"],
+              minimum: 0
+            },
+            total: {
+              bsonType: "number",
+              minimum: 0
+            }
+          }
+        },
+        payment: {
+          bsonType: "object",
+          required: ["method", "status"],
+          properties: {
+            method: {
+              bsonType: "string",
+              enum: ["razorpay", "stripe", "paypal", "cod", "bank_transfer"]
+            },
+            status: {
+              bsonType: "string",
+              enum: ["pending", "processing", "verified", "failed", "refunded"]
+            },
+            razorpay_order_id: {
+              bsonType: ["string", "null"]
+            },
+            razorpay_payment_id: {
+              bsonType: ["string", "null"]
+            },
+            razorpay_signature: {
+              bsonType: ["string", "null"]
+            },
+            transaction_id: {
+              bsonType: ["string", "null"]
+            },
+            payment_date: {
+              bsonType: ["date", "null"]
+            }
+          }
+        },
+        shipping: {
+          bsonType: ["object", "null"],
+          properties: {
+            carrier: {
+              bsonType: ["string", "null"]
+            },
+            tracking_number: {
+              bsonType: ["string", "null"]
+            },
+            shipped_date: {
+              bsonType: ["date", "null"]
+            },
+            delivered_date: {
+              bsonType: ["date", "null"]
+            }
+          }
+        },
+        notes: {
+          bsonType: ["string", "null"]
+        },
+        invoice_number: {
+          bsonType: ["string", "null"]
+        },
+        is_deleted: {
+          bsonType: ["bool", "null"]
+        },
+        createdAt: {
+          bsonType: ["date", "null"]
+        },
+        updatedAt: {
+          bsonType: ["date", "null"]
+        }
+      }
+    }
+  }
+});
+
+print("Collection 'new_orders' created successfully!");
+
+// Create indexes for optimal query performance
+db.new_orders.createIndex({ "order_id": 1 }, { unique: true, name: "idx_order_id" });
+db.new_orders.createIndex({ "order_date": -1 }, { name: "idx_order_date" });
+db.new_orders.createIndex({ "status": 1 }, { name: "idx_status" });
+db.new_orders.createIndex({ "user.user_email": 1 }, { name: "idx_user_email" });
+db.new_orders.createIndex({ "customer.email": 1 }, { name: "idx_customer_email" });
+db.new_orders.createIndex({ "payment.status": 1 }, { name: "idx_payment_status" });
+
+// Compound indexes
+db.new_orders.createIndex(
+  { "status": 1, "order_date": -1 }, 
+  { name: "idx_status_date" }
+);
+
+db.new_orders.createIndex(
+  { "payment.status": 1, "order_date": -1 }, 
+  { name: "idx_payment_status_date" }
+);
+
+// Sparse indexes for optional unique fields
+db.new_orders.createIndex(
+  { "payment.razorpay_order_id": 1 }, 
+  { sparse: true, name: "idx_razorpay_order" }
+);
+
+db.new_orders.createIndex(
+  { "payment.razorpay_payment_id": 1 }, 
+  { sparse: true, name: "idx_razorpay_payment" }
+);
+
+db.new_orders.createIndex(
+  { "invoice_number": 1 }, 
+  { sparse: true, unique: true, name: "idx_invoice_number" }
+);
+
+print("Indexes created successfully!");

@@ -45,6 +45,10 @@ This is a Node.js Express API backend for managing products and categories. It c
 ### Newsletter
 - `POST /api/newsletter-emails` - Store email subscription (email)
 
+### Orders
+- `POST /api/orders` - Save order data (order_id, order_date, status, user, items, customer, pricing, payment)
+- `GET /api/orders/:email` - Fetch all orders by email address
+
 ### System
 - `GET /` - API information and available endpoints
 - `GET /health` - Health check and database status
@@ -106,6 +110,9 @@ This is a Node.js Express API backend for managing products and categories. It c
 - Additional fields: createdAt, updatedAt
 
 ## Recent Changes
+- 2025-09-21: Added order management APIs - POST /api/orders for saving orders and GET /api/orders/:email for fetching orders by email
+- 2025-09-21: Implemented new_orders collection with complete schema validation supporting both Razorpay and COD payments
+- 2025-09-21: Added comprehensive order validation including order_id uniqueness, customer details, items, pricing, and payment methods
 - 2025-09-21: Implemented complete cart management system with 5 API endpoints and JWT authentication
 - 2025-09-21: Added cart collection with MongoDB schema validation and proper indexes
 - 2025-09-21: Created JWT authentication middleware for secure cart operations
