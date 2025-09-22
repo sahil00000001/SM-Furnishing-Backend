@@ -4,7 +4,10 @@ const { MongoClient, ObjectId } = require('mongodb');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { sendEmail } = require('./utils/replitmail');
+// Use SendGrid for production compatibility, fallback to replitmail for Replit environment
+const { sendEmail } = process.env.SENDGRID_API_KEY ? 
+  require('./utils/sendgrid') : 
+  require('./utils/replitmail');
 
 const app = express();
 
