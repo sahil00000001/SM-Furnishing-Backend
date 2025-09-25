@@ -1,0 +1,353 @@
+{
+  "success": true,
+  "message": "Retrieved 11 orders",
+  "pagination": {
+    "current_page": 1,
+    "total_pages": 1,
+    "total_orders": 11,
+    "orders_per_page": 50,
+    "has_next_page": false,
+    "has_previous_page": false
+  },
+  "count": 11,
+  "orders": [
+    {
+      "_id": "68d581982f5c11f181217052",
+      "order_id": "cod_order_1758822806841",
+      "order_date": "2025-09-25T17:53:26.841Z",
+      "status": "completed",
+      "user": {
+        "user_id": null,
+        "username": "Sahil",
+        "user_email": "vashishtsahil99@gmail.com"
+      },
+      "items": [
+        {
+          "product_id": "68d14e1c338b9d980a81eca4",
+          "product_name": "Mridul",
+          "quantity": 1,
+          "price": 2099
+        },
+        {
+          "product_id": "68d14e1c338b9d980a81ecb7",
+          "product_name": "Manjari",
+          "quantity": 1,
+          "price": 2199
+        },
+        {
+          "product_id": "68d14e1c338b9d980a81eca1",
+          "product_name": "Guldaan",
+          "quantity": 1,
+          "price": 2099
+        }
+      ],
+      "customer": {
+        "name": "sahil vashisht",
+        "email": "vashishtsahil99@gmail.com",
+        "phone": "9625107920",
+        "address": "sa",
+        "city": "delhi",
+        "state": "as",
+        "pin_code": "110043",
+        "country": "India"
+      },
+      "pricing": {
+        "subtotal": 6397,
+        "tax": 0,
+        "shipping": 0,
+        "discount": null,
+        "total": 6397
+      },
+      "payment": {
+        "method": "cod",
+        "status": "pending",
+        "razorpay_order_id": null,
+        "razorpay_payment_id": null,
+        "razorpay_signature": null,
+        "transaction_id": null,
+        "payment_date": null
+      },
+      "shipping": null,
+      "notes": null,
+      "invoice_number": "INV-cod_order_1758822806841-1758822808452",
+      "is_deleted": false,
+      "createdAt": "2025-09-25T17:53:28.452Z",
+      "updatedAt": "2025-09-25T17:53:28.452Z"
+    },
+    {
+      "_id": "68d57d472f5c11f181217051",
+      "order_id": "cod_order_1758820633980",
+      "order_date": "2025-09-25T17:17:13.980Z",
+      "status": "completed",
+      "user": {
+        "user_id": null,
+        "username": "Sahil",
+        "user_email": "vashishtsahil99@gmail.com"
+      },
+      "items": [
+        {
+          "product_id": "68d14e1c338b9d980a81eca2",
+          "product_name": "Aabshaar",
+          "quantity": 1,
+          "price": 2099
+        }
+      ],
+      "customer": {
+        "name": "Sahil Vashisht",
+        "email": "sahil.vashisht@podtech.com",
+        "phone": "9625107920",
+        "address": "B-41 Indra Park",
+        "city": "New Delhi",
+        "state": "Delhi",
+        "pin_code": "110043",
+        "country": "India"
+      },
+      "pricing": {
+        "subtotal": 2099,
+        "tax": 0,
+        "shipping": 0,
+        "discount": null,
+        "total": 2099
+      },
+      "payment": {
+        "method": "cod",
+        "status": "pending",
+        "razorpay_order_id": null,
+        "razorpay_payment_id": null,
+        "razorpay_signature": null,
+        "transaction_id": null,
+        "payment_date": null
+      },
+      "shipping": null,
+      "notes": null,
+      "invoice_number": "INV-cod_order_1758820633980-1758821703202",
+      "is_deleted": false,
+      "createdAt": "2025-09-25T17:35:03.202Z",
+      "updatedAt": "2025-09-25T17:35:03.202Z"
+    },
+    {
+      "_id": "68d157b06805b94b4a33093e",
+      "order_id": "order_RKfqbjm5thK1AD",
+      "order_date": "2025-09-22T14:05:34.295Z",
+      "status": "completed",
+      "user": {
+        "user_id": null,
+        "username": "Sahil",
+        "user_email": "vashishtsahil99@gmail.com"
+      },
+      "items": [
+        {
+          "product_id": "68d14e1c338b9d980a81eca0",
+          "product_name": "Mehek",
+          "quantity": 1,
+          "price": 2099
+        },
+        {
+          "product_id": "68d14e1c338b9d980a81eca1",
+          "product_name": "Guldaan",
+          "quantity": 1,
+          "price": 2099
+        },
+        {
+          "product_id": "68d14e1c338b9d980a81eca2",
+          "product_name": "Aabshaar",
+          "quantity": 1,
+          "price": 2099
+        }
+      ],
+      "customer": {
+        "name": "Sahil Vashisht",
+        "email": "sahil.vashisht@podtech.com",
+        "phone": "9625107920",
+        "address": "B-41 Indra Park",
+        "city": "New Delhi",
+        "state": "Delhi",
+        "pin_code": "110043",
+        "country": "India"
+      },
+      "pricing": {
+        "subtotal": 6297,
+        "tax": 1133.46,
+        "shipping": 0,
+        "discount": null,
+        "total": 7430.46
+      },
+      "payment": {
+        "method": "razorpay",
+        "status": "verified",
+        "razorpay_order_id": "order_RKfqbjm5thK1AD",
+        "razorpay_payment_id": "pay_RKfqlpz5BrGYue",
+        "razorpay_signature": null,
+        "transaction_id": null,
+        "payment_date": null
+      },
+      "shipping": null,
+      "notes": null,
+      "invoice_number": "INV-order_RKfqbjm5thK1AD-1758549936538",
+      "is_deleted": false,
+      "createdAt": "2025-09-22T14:05:36.538Z",
+      "updatedAt": "2025-09-22T14:05:36.538Z"
+    },
+    {
+      "_id": "68d142456805b94b4a33093d",
+      "order_id": "order_RKeI4em7yQPeXe",
+      "order_date": "2025-09-22T12:34:11.688Z",
+      "status": "completed",
+      "user": {
+        "user_id": null,
+        "username": "Sahil Vashisht",
+        "user_email": "sahil.vashisht@podtech.com"
+      },
+      "items": [
+        {
+          "product_id": "68ce690873ebdfc938cebeac",
+          "product_name": "Aasmaan",
+          "quantity": 1,
+          "price": 1999
+        },
+        {
+          "product_id": "68ce690873ebdfc938cebeaf",
+          "product_name": "Baalu",
+          "quantity": 1,
+          "price": 2249
+        }
+      ],
+      "customer": {
+        "name": "Sahil Vashisht",
+        "email": "sahil.vashisht@podtech.com",
+        "phone": "9625107920",
+        "address": "B-41 Indra Park",
+        "city": "New Delhi",
+        "state": "Delhi",
+        "pin_code": "110043",
+        "country": "India"
+      },
+      "pricing": {
+        "subtotal": 4248,
+        "tax": 764.64,
+        "shipping": 0,
+        "discount": null,
+        "total": 5012.64
+      },
+      "payment": {
+        "method": "razorpay",
+        "status": "verified",
+        "razorpay_order_id": "order_RKeI4em7yQPeXe",
+        "razorpay_payment_id": "pay_RKeIF9HrYDDygl",
+        "razorpay_signature": null,
+        "transaction_id": null,
+        "payment_date": null
+      },
+      "shipping": null,
+      "notes": null,
+      "invoice_number": "INV-order_RKeI4em7yQPeXe-1758544453890",
+      "is_deleted": false,
+      "createdAt": "2025-09-22T12:34:13.890Z",
+      "updatedAt": "2025-09-22T12:34:13.890Z"
+    },
+    {
+      "_id": "68d132cd108e210e1c89e4f0",
+      "order_id": "cod_order_1758540491497",
+      "order_date": "2025-09-22T11:28:11.497Z",
+      "status": "completed",
+      "user": {
+        "user_id": null,
+        "username": "Akshita Grover",
+        "user_email": "grover.akshita19@gmail.com"
+      },
+      "items": [
+        {
+          "product_id": "68ce690873ebdfc938cebeaa",
+          "product_name": "Chaandh",
+          "quantity": 1,
+          "price": 1999
+        },
+        {
+          "product_id": "68ce690873ebdfc938cebea7",
+          "product_name": "Mitti",
+          "quantity": 1,
+          "price": 1999
+        },
+        {
+          "product_id": "68ce690873ebdfc938cebea6",
+          "product_name": "Gulal",
+          "quantity": 1,
+          "price": 1999
+        }
+      ],
+      "customer": {
+        "name": "Akshita Grover",
+        "email": "grover.akshita19@gmail.com",
+        "phone": "9996559997",
+        "address": "1955",
+        "city": "Hisar",
+        "state": "Haryana",
+        "pin_code": "125001",
+        "country": "India"
+      },
+      "pricing": {
+        "subtotal": 5997,
+        "tax": 1079.46,
+        "shipping": 0,
+        "discount": null,
+        "total": 7076.46
+      },
+      "payment": {
+        "method": "cod",
+        "status": "pending",
+        "razorpay_order_id": null,
+        "razorpay_payment_id": null,
+        "razorpay_signature": null,
+        "transaction_id": null,
+        "payment_date": null
+      },
+      "shipping": null,
+      "notes": null,
+      "invoice_number": "INV-cod_order_1758540491497-1758540493260",
+      "is_deleted": false,
+      "createdAt": "2025-09-22T11:28:13.262Z",
+      "updatedAt": "2025-09-22T11:28:13.262Z"
+    },
+    {
+      "_id": "68d0d748108e210e1c89e4eb",
+      "order_id": "cod_order_1758517062711",
+      "order_date": "2025-09-22T04:57:42.711Z",
+      "status": "completed",
+      "user": {
+        "user_id": null,
+        "username": "Sahil Vashisht",
+        "user_email": "vashishtsahil999@gmail.com"
+      },
+      "items": [
+        {
+          "product_id": "68ce690873ebdfc938cebea6",
+          "product_name": "Gulal",
+          "quantity": 1,
+          "price": 1999
+        },
+        {
+          "product_id": "68ce690873ebdfc938cebea7",
+          "product_name": "Mitti",
+          "quantity": 1,
+          "price": 1999
+        },
+        {
+          "product_id": "68ce690873ebdfc938cebea8",
+          "product_name": "Neel",
+          "quantity": 1,
+          "price": 1999
+        }
+      ],
+      "customer": {
+        "name": "Sahil Vashisht",
+        "email": "sahil.vashisht@podtech.com",
+        "phone": "9625107920",
+        "address": "B-41 Indra Park",
+        "city": "New Delhi",
+        "state": "Delhi",
+        "pin_code": "110043",
+        "country": "India"
+      },
+      "pricing": {
+        "subtotal": 5997,
+        "tax": 1079.46,

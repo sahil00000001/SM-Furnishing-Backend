@@ -2026,6 +2026,111 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
+// GET /api/orders - Get all orders with full details
+app.get('/api/orders', async (req, res) => {
+  try {
+    // Optional query parameters for filtering and pagination
+    const { page = 1, limit = 50, status, payment_status } = req.query;
+    const skip = (page - 1) * parseInt(limit);
+    
+    // Build filter query
+    let filter = { is_deleted: { $ne: true } };
+    
+    if (status) {
+      filter.status = status;
+    }
+    
+    if (payment_status) {
+      filter['payment.status'] = payment_status;
+    }
+    
+    // Get total count for pagination
+    const totalOrders = await newOrdersCollection.countDocuments(filter);
+    
+    // Fetch orders with pagination
+    const orders = await newOrdersCollection.find(filter)
+      .sort({ order_date: -1 }) // Sort by order date, newest first
+      .skip(skip)
+      .limit(parseInt(limit))
+      .toArray();
+    
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalOrders / parseInt(limit));
+    
+    // Send response
+    res.status(200).json({
+      success: true,
+      message: `Retrieved ${orders.length} orders`,
+      pagination: {
+        current_page: parseInt(page),
+        total_pages: totalPages,
+        total_orders: totalOrders,
+        orders_per_page: parseInt(limit),
+        has_next_page: parseInt(page) < totalPages,
+        has_previous_page: parseInt(page) > 1
+      },
+      count: orders.length,
+      orders: orders
+    });
+    
+    console.log(`📋 Retrieved ${orders.length} orders (page ${page} of ${totalPages})`);
+    
+  } catch (error) {
+    console.error('❌ Error fetching all orders:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch orders',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/orders/by-id/:orderId - Get specific order by order ID
+app.get('/api/orders/by-id/:orderId', async (req, res) => {
+  try {
+    const orderId = req.params.orderId;
+    
+    // Validate order ID is provided
+    if (!orderId || orderId.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Order ID is required'
+      });
+    }
+    
+    // Find order by order_id
+    const order = await newOrdersCollection.findOne({
+      order_id: orderId,
+      is_deleted: { $ne: true }
+    });
+    
+    // Check if order exists
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: `Order with ID '${orderId}' not found`
+      });
+    }
+    
+    // Send response with full order details
+    res.status(200).json({
+      success: true,
+      message: `Order ${orderId} retrieved successfully`,
+      order: order
+    });
+    
+    console.log(`📋 Retrieved order details for ID: ${orderId}`);
+    
+  } catch (error) {
+    console.error('❌ Error fetching order by ID:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch order',
+      error: error.message
+    });
+  }
+});
+
 // GET /api/orders/:email - Fetch orders by email
 app.get('/api/orders/:email', async (req, res) => {
   try {
@@ -2107,6 +2212,8 @@ app.get('/', (req, res) => {
       'PUT /api/cart/update': 'Update cart item quantity (productId, quantity) (requires JWT token)',
       'DELETE /api/cart/item/:productId': 'Remove item from cart (requires JWT token)',
       'DELETE /api/cart/clear': 'Clear entire cart (requires JWT token)',
+      'GET /api/orders': 'Get all orders with pagination and filtering',
+      'GET /api/orders/by-id/:orderId': 'Get specific order by order ID',
       'POST /api/orders': 'Save order data (order_id, user, items, customer, pricing, payment)',
       'GET /api/orders/:email': 'Fetch all orders by email address',
       'GET /health': 'Health check'
@@ -2115,7 +2222,7 @@ app.get('/', (req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 async function startServer() {
   await connectToMongoDB();
